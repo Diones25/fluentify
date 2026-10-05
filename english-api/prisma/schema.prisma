@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Level {
+  BEGINNER
+  ELEMENTARY
+  INTERMEDIATE
+  UPPER_INTERMEDIATE
+  ADVANCED
+}
+
+enum Goal {
+  TRAVEL
+  WORK
+  CONVERSATION
+  EXAMS
+}
+
+enum AudioMode {
+  ALWAYS
+  SPEAKING_ONLY
+}
+
+enum PlanStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum LessonType {
+  SPEAKING
+  VOCAB
+  CHAT
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String
+  passwordHash  String
+  createdAt     DateTime       @default(now())
+  profile       Profile?
+  plans         StudyPlan[]
+  conversations Conversation[]
+  attempts      Attempt[]
+  streak        Streak?
+}
+
+model Profile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  level         Level
+  goal          Goal
+  minutesPerDay Int
+  daysPerWeek   Int
+  audioMode     AudioMode @default(ALWAYS)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model StudyPlan {
+  id        String     @id @default(uuid())
+  userId    String
+  status    PlanStatus @default(ACTIVE)
+  weeks     Int
+  createdAt DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  days      PlanDay[]
+}
+
+model PlanDay {
+  id          String    @id @default(uuid())
+  planId      String
+  dayNumber   Int
+  theme       String
+  completedAt DateTime?
+  plan        StudyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+
+  @@unique([planId, dayNumber])
+}
+
+model Lesson {
+  id        String     @id @default(uuid())
+  planDayId String
+  type      LessonType
+  order     Int
+  content   Json
+  planDay   PlanDay    @relation(fields: [planDayId], references: [id], onDelete: Cascade)
+  attempts  Attempt[]
+}
+
+model Attempt {
+  id         String   @id @default(uuid())
+  userId     String
+  lessonId   String?
+  expected   String
+  transcript String
+  score      Int
+  feedback   Json?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson     Lesson?  @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+}
+
+model Conversation {
+  id        String    @id @default(uuid())
+  userId    String
+  topic     String?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  role           String // "user" | "assistant"
+  content        String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model Streak {
+  userId        String  @id
+  current       Int     @default(0)
+  best          Int     @default(0)
+  lastActiveDay String? // "YYYY-MM-DD"
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
