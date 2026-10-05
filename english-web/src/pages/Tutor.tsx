@@ -19,7 +19,9 @@ export default function Tutor() {
   const sr = useSpeechRecognition('en-US');
 
   // Rola para o fim a cada nova mensagem
-  useEffect(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   // Se falou no microfone, envia automaticamente
   useEffect(() => {
