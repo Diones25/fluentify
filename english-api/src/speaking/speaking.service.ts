@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AiService } from '../ai/ai.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EvaluateDto } from './dto/evaluate.dto.js';
+import { UsageService } from '../ai/usage.service.js';
 
 const normalize = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9'\s]/g, '').split(/\s+/).filter(Boolean);
@@ -27,7 +28,11 @@ function lcsMatches(a: string[], b: string[]): boolean[] {
 @Injectable()
 export class SpeakingService {
   private readonly logger = new Logger(SpeakingService.name);
-  constructor(private prisma: PrismaService, private ai: AiService) { }
+  constructor(
+    private prisma: PrismaService,
+    private readonly ai: AiService,
+    private readonly usage: UsageService
+  ) { }
 
   async evaluate(userId: string, dto: EvaluateDto) {
     const expected = normalize(dto.expected);
@@ -39,12 +44,21 @@ export class SpeakingService {
 
     // Dica da IA só quando errou bastante (economiza dinheiro).
     let tip: string | null = null;
+
+    try {
+      await this.usage.assertWithinQuota(userId, 'tip'); /* ...gera a dica... */
+    }
+    catch {
+      /* sem dica hoje */
+    }
+
     if (score < 80) {
       try {
         tip = await this.ai.text(
           'You are a pronunciation coach for Brazilian Portuguese speakers learning English. Answer in Portuguese, max 2 short sentences.',
           `Frase esperada: "${dto.expected}". O aluno falou: "${dto.transcript}". Dê uma dica prática.`,
-          150,
+          { userId, feature: 'tip' },
+          { tier: 'fast', maxTokens: 150 },
         );
       } catch (e) {
         this.logger.warn(`Falha ao gerar dica: ${(e as Error).message}`);

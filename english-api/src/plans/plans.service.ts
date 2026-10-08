@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AiService } from '../ai/ai.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { UsageService } from '../ai/usage.service.js';
 
 const WEEKS = 4;
 
@@ -64,23 +65,34 @@ Translations must be in Brazilian Portuguese. Keep English natural and level-app
 export class PlansService {
   private readonly logger = new Logger(PlansService.name);
 
-  constructor(private prisma: PrismaService, private ai: AiService) { }
+  constructor(
+    private prisma: PrismaService,
+    private readonly ai: AiService,
+    private readonly usage: UsageService
+  ) {}
 
   async generate(userId: string) {
+    await this.usage.assertWithinQuota(userId, 'plan');
     const profile = await this.prisma.profile.findUnique({ where: { userId } });
     if (!profile) throw new BadRequestException('Complete o onboarding primeiro');
 
     const totalDays = WEEKS * profile.daysPerWeek;
     const perDay = activitiesPerDay(profile.minutesPerDay);
 
+    const ctx = { userId, feature: 'plan' };
+
     // ETAPA 1: esqueleto (só os temas)
     const outline = await this.ai.json(
       SYSTEM,
       `Student level: ${profile.level}. Goal: ${profile.goal}.
-Create ${totalDays} lesson themes for a ${WEEKS}-week course, in increasing difficulty,
-without repeating themes. Return: {"themes": ["..."]} with exactly ${totalDays} items.`,
+      Create ${totalDays} lesson themes for a ${WEEKS}-week course, in increasing difficulty,
+      without repeating themes. Return: {"themes": ["..."]} with exactly ${totalDays} items.`,
       OutlineSchema(totalDays),
-      1500,
+      ctx,
+      {
+        tier: 'fast',
+        maxTokens: 1500
+      }
     );
 
     // ETAPA 2: expandir cada semana em paralelo
@@ -95,24 +107,24 @@ without repeating themes. Return: {"themes": ["..."]} with exactly ${totalDays} 
       return this.ai.json(
         SYSTEM,
         `Student level: ${profile.level}. Goal: ${profile.goal}. Daily time: ${profile.minutesPerDay} minutes.
-Create the lessons for these days: ${JSON.stringify(days)}.
+        Create the lessons for these days: ${JSON.stringify(days)}.
 
-For EVERY day, create exactly ${perDay} lessons in this exact order:
-${mixLines}
+        For EVERY day, create exactly ${perDay} lessons in this exact order:
+        ${mixLines}
 
-Hard requirements:
-- Every day must have exactly ${perDay} lessons, in the order above.
-- Every VOCAB lesson must have between 3 and 8 items. Never fewer than 3.
-- Reuse the "dayNumber" and "theme" exactly as given, do not invent new ones.
+        Hard requirements:
+        - Every day must have exactly ${perDay} lessons, in the order above.
+        - Every VOCAB lesson must have between 3 and 8 items. Never fewer than 3.
+        - Reuse the "dayNumber" and "theme" exactly as given, do not invent new ones.
 
-Formats:
-SPEAKING: {"type":"SPEAKING","phrase":"...","translation":"...","tip":"..."}
-VOCAB: {"type":"VOCAB","items":[{"word":"...","translation":"...","example":"..."},{"word":"...","translation":"...","example":"..."},{"word":"...","translation":"...","example":"..."}]}
-CHAT: {"type":"CHAT","scenario":"...","goal":"...","starter":"..."}
+        Formats:
+        SPEAKING: {"type":"SPEAKING","phrase":"...","translation":"...","tip":"..."}
+        VOCAB: {"type":"VOCAB","items":[{"word":"...","translation":"...","example":"..."},{"word":"...","translation":"...","example":"..."},{"word":"...","translation":"...","example":"..."}]}
+        CHAT: {"type":"CHAT","scenario":"...","goal":"...","starter":"..."}
 
-Return: {"days":[{"dayNumber":1,"theme":"...","lessons":[...]}]}`,
+        Return: {"days":[{"dayNumber":1,"theme":"...","lessons":[...]}]}`,
         WeekSchema(days.length),
-        8000,
+        ctx, { tier: 'fast', maxTokens: 8000 }
       ).catch((e) => {
         this.logger.error(`Falha ao gerar a semana ${w + 1}`, e as Error);
         throw e;

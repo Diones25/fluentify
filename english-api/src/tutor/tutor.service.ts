@@ -50,7 +50,7 @@ Rules:
 
     // 5) Streaming
     let full = '';
-    for await (const chunk of this.ai.stream(system, history)) {
+    for await (const chunk of this.ai.stream(system, history, { userId, feature: 'tutor' })) {
       full += chunk;
       yield { type: 'delta', text: chunk };
     }
