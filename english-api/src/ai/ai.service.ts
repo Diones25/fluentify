@@ -1,99 +1,84 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
-import { ZodError, ZodType, prettifyError } from 'zod';
+import { ZodType } from 'zod';
+import { UsageService } from './usage.service.js';
 
 export type ChatMsg = { role: 'user' | 'assistant'; content: string };
-
-type MsgParam = OpenAI.Chat.Completions.ChatCompletionMessageParam;
+export type Tier = 'fast' | 'smart';
+export type AiCtx = { userId: string; feature: string };
+type Opts = { tier?: Tier; maxTokens?: number };
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private client: OpenAI;
-  private model: string;
+  private models: Record<Tier, string>;
 
-  constructor(config: ConfigService) {
-    this.client = new OpenAI({apiKey: config.get('OPENAI_API_KEY')});
-    this.model = config.get<string>('OPENAI_MODEL') ?? 'gpt-4.1';
+  constructor(config: ConfigService, private usage: UsageService) {
+    this.client = new OpenAI({ apiKey: config.getOrThrow<string>('OPENAI_API_KEY') });
+    this.models = {
+      smart: config.get<string>('OPENAI_MODEL') ?? 'gpt-4.1',
+      fast: config.get<string>('OPENAI_MODEL_FAST') ?? 'gpt-4.1-mini',
+    };
   }
 
-  /** Resposta de texto simples (ex.: dica curta de pronúncia). */
-  async text(system: string, user: string, maxTokens = 300): Promise<string> {
+  async text(system: string, user: string, ctx: AiCtx, opts: Opts & { jsonMode?: boolean } = {}): Promise<string> {
     const res = await this.client.chat.completions.create({
-      model: this.model,
-      max_completion_tokens: maxTokens,
+      model: this.models[opts.tier ?? 'smart'],
+      max_completion_tokens: opts.maxTokens ?? 300,
       messages: [
         { role: 'system', content: system },
-        { role: 'user', content: user }
-      ]
+        { role: 'user', content: user },
+      ],
+      ...(opts.jsonMode ? { response_format: { type: 'json_object' as const } } : {}),
     });
-    return res.choices[0].message?.content?.trim() ?? '';
+    await this.usage.record(ctx.userId, ctx.feature, res.usage?.prompt_tokens ?? 0, res.usage?.completion_tokens ?? 0);
+    return res.choices[0]?.message?.content?.trim() ?? '';
   }
 
-  /** Chamada em JSON mode. Devolve o texto limpo e se a resposta foi cortada. */
-  private async askJson(system: string, messages: MsgParam[], maxTokens: number): Promise<{ raw: string; truncated: boolean }> {
-    const res = await this.client.chat.completions.create({
-      model: this.model,
-      max_completion_tokens: maxTokens,
-      messages: [{ role: 'system', content: system }, ...messages],
-      response_format: { type: 'json_object' as const },
-    });
-
-    const choice = res.choices[0];
-    // Por garantia, removemos cercas ```json caso apareçam.
-    const raw = (choice?.message?.content ?? '').replace(/```json|```/g, '').trim();
-    return { raw, truncated: choice?.finish_reason === 'length' };
-  }
-
-  /**
-   * Pede JSON à IA, valida com Zod e reenvia o erro de validação para ela corrigir.
-   * Sem esse feedback o modelo repete a mesma resposta inválida até o fim das tentativas.
-   */
-  async json<T>(system: string, user: string, schema: ZodType<T>, maxTokens = 6000, retries = 2): Promise<T>{
-    const messages: MsgParam[] = [{ role: 'user', content: user }];
-    let lastProblem = 'resposta inválida';
-
+  async json<T>(
+    system: string,
+    user: string,
+    schema: ZodType<T>,
+    ctx: AiCtx,
+    opts: Opts & { retries?: number } = {},
+  ): Promise<T> {
+    const retries = opts.retries ?? 2;
+    let lastError: unknown;
     for (let attempt = 0; attempt <= retries; attempt++) {
-      let raw = '';
-
       try {
-        const res = await this.askJson(system, messages, maxTokens);
-        raw = res.raw;
-        if (res.truncated) {
-          throw new Error(`Resposta cortada pelo limite de ${maxTokens} tokens. Gere conteúdo mais curto.`);
-        }
-        return schema.parse(JSON.parse(raw));
+        const raw = await this.text(system, user, ctx, { tier: opts.tier, maxTokens: opts.maxTokens ?? 6000, jsonMode: true });
+        const clean = raw.replace(/```json|```/g, '').trim();
+        return schema.parse(JSON.parse(clean));
       } catch (e) {
-        lastProblem = e instanceof ZodError ? prettifyError(e) : (e as Error).message;
-        this.logger.warn(
-          `JSON inválido (tentativa ${attempt + 1}/${retries + 1}): ${lastProblem.split('\n').slice(0, 4).join(' | ')}`,
-        );
-
-        // Self-correction: mostramos o que ela mandou e exatamente o que precisa consertar.
-        if (raw) messages.push({ role: 'assistant', content: raw });
-        messages.push({
-          role: 'user',
-          content: `Seu JSON anterior não passou na validação:\n${lastProblem}\n\nCorrija esses problemas e responda novamente com o JSON completo e válido, sem texto em volta.`,
-        });
+        lastError = e;
+        this.logger.warn(`JSON inválido (tentativa ${attempt + 1}): ${(e as Error).message}`);
       }
     }
-
-    this.logger.error(`IA não devolveu JSON válido após ${retries + 1} tentativas: ${lastProblem}`);
+    this.logger.error('IA não devolveu JSON válido', lastError as Error);
     throw new InternalServerErrorException('Não foi possível gerar o conteúdo. Tente novamente.');
   }
 
-  /** Streaming: devolve pedaços de texto conforme a IA escreve. */
-  async *stream(system: string, messages: ChatMsg[], maxTokens = 500): AsyncGenerator<string> {
+  async *stream(system: string, messages: ChatMsg[], ctx: AiCtx, opts: Opts = {}): AsyncGenerator<string> {
     const stream = await this.client.chat.completions.create({
-      model: this.model,
-      max_completion_tokens: maxTokens,
+      model: this.models[opts.tier ?? 'smart'],
+      max_completion_tokens: opts.maxTokens ?? 500,
       messages: [{ role: 'system', content: system }, ...messages],
       stream: true,
+      stream_options: { include_usage: true }, // o último pedaço traz o consumo de tokens
     });
+
+    let inputTokens = 0;
+    let outputTokens = 0;
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content;
       if (delta) yield delta;
+      if (chunk.usage) {
+        inputTokens = chunk.usage.prompt_tokens;
+        outputTokens = chunk.usage.completion_tokens;
+      }
     }
+    await this.usage.record(ctx.userId, ctx.feature, inputTokens, outputTokens);
   }
 }
