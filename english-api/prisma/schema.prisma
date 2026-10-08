@@ -50,6 +50,7 @@ model User {
   conversations Conversation[]
   attempts      Attempt[]
   streak        Streak?
+  aiUsage AiUsage[]
 }
 
 model Profile {
@@ -132,4 +133,17 @@ model Streak {
   best          Int     @default(0)
   lastActiveDay String? // "YYYY-MM-DD"
   user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AiUsage {
+  id           String @id @default(uuid())
+  userId       String
+  day          String // "YYYY-MM-DD" (UTC)
+  feature      String // "tutor" | "plan" | "tip" | "analysis" | "mission"
+  inputTokens  Int    @default(0)
+  outputTokens Int    @default(0)
+  calls        Int    @default(0)
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day, feature])
 }
