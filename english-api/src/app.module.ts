@@ -13,6 +13,10 @@ import { ProgressModule } from './progress/progress.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { AiModule } from './ai/ai.module.js';
 import { ScheduleModule } from '@nestjs/schedule';
+import basicAuth from 'express-basic-auth';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { ExpressAdapter } from '@bull-board/express';
+
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
@@ -33,7 +37,15 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         ttl: 60_000,
         limit: 60
       }// 60 req/min por IP
-    ]), 
+    ]),
+    BullBoardModule.forRoot({
+      route: '/queues',
+      adapter: ExpressAdapter,
+      middleware: basicAuth({
+        challenge: true,
+        users: { [process.env.DASHBOARD_USER ?? 'admin']: process.env.DASHBOARD_PASS ?? 'admin' },
+      }),
+    }),
     AuthModule,
     ProfileModule,
     PlansModule,

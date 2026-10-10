@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { PlansController } from './plans.controller.js';
 import { PlansService } from './plans.service.js';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 
 @Module({
   imports: [
@@ -16,6 +18,7 @@ import { PlansService } from './plans.service.js';
       }),
     }),
     BullModule.registerQueue({ name: 'plans' }),
+    BullBoardModule.forFeature({ name: 'plans', adapter: BullMQAdapter }),
   ],
   controllers: [PlansController],
   providers: [PlansService]
