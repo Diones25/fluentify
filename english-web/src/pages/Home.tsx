@@ -1,9 +1,10 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { Today } from '../lib/types';
 import SpeakingExercise from '../components/SpeakingExercise';
 import VocabCard from '../components/VocabCard';
+import { usePlanJob } from '../hooks/usePlanJob';
 
 export default function Home() {
   const qc = useQueryClient();
@@ -13,10 +14,8 @@ export default function Home() {
     queryFn: async () => (await api.get<Today>('/lessons/today')).data,
   });
 
-  const generate = useMutation({
-    mutationFn: () => api.post('/plans/generate'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['today'] }),
-  });
+  const [params] = useSearchParams();              // import de react-router-dom
+  const plan = usePlanJob(params.get('job'));      // aceita ?job=ID vindo do onboarding
 
   const complete = useMutation({
     mutationFn: (dayId: string) => api.post(`/lessons/days/${dayId}/complete`),
@@ -35,13 +34,13 @@ export default function Home() {
       <div className="flex flex-col items-center gap-4 pt-20 text-center">
         <p>Você ainda não tem um plano de estudos.</p>
         <button
-          onClick={() => generate.mutate()}
-          disabled={generate.isPending}
+          onClick={plan.start}
+          disabled={plan.generating}
           className="rounded-2xl bg-white px-6 py-3 font-semibold text-black disabled:opacity-50"
         >
-          {generate.isPending ? 'Gerando (30s)...' : 'Gerar meu plano'}
+          {plan.generating ? 'Gerando seu plano...' : 'Gerar meu plano'}
         </button>
-        {generate.isError && <p className="text-sm text-red-400">Falhou. Tente de novo em instantes.</p>}
+        {plan.failed && <p className="text-sm text-red-400">Falhou. Tente de novo.</p>}
       </div>
     );
   }
@@ -51,7 +50,9 @@ export default function Home() {
     return (
       <div className="pt-20 text-center">
         <p className="text-2xl font-bold">🎉 Plano concluído!</p>
-        <button onClick={() => generate.mutate()} className="mt-6 rounded-2xl bg-white px-6 py-3 font-semibold text-black">
+        <button
+          onClick={plan.start}
+          className="mt-6 rounded-2xl bg-white px-6 py-3 font-semibold text-black">
           Gerar um novo plano
         </button>
       </div>

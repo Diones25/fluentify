@@ -88,26 +88,17 @@ export default function Onboarding() {
     try {
       await register(name, email, password); // 1) cria conta
       await api.put('/profile', answers); // 2) salva respostas
+      let jobId: string | undefined;
       try {
-        await api.post('/plans/generate'); // 3) gera plano (20-40s)
+        jobId = (await api.post<{ jobId: string }>('/plans/generate')).data.jobId;
       } catch {
-        // Se a IA falhar, o usuário ainda entra; a Home oferece "Gerar plano".
+        /* a Home oferece o botão */
       }
-      navigate('/home');
+      navigate(jobId ? `/home?job=${jobId}` : '/home');
     } catch {
       setError('Não foi possível criar a conta. Verifique os dados.');
       setLoading(false);
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
-        <div className="h-20 w-20 animate-pulse rounded-full bg-emerald-400" />
-        <p className="text-lg">Montando seu plano de estudos...</p>
-        <p className="text-sm text-neutral-400">Isso leva cerca de 30 segundos.</p>
-      </div>
-    );
   }
 
   return (
@@ -147,7 +138,9 @@ export default function Onboarding() {
           <input className="rounded-xl bg-neutral-900 p-3" placeholder="E-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <input className="rounded-xl bg-neutral-900 p-3" placeholder="Senha (mín. 8 caracteres)" type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
           {error && <p className="text-sm text-red-400">{error}</p>}
-          <button className="mt-auto rounded-2xl bg-white p-4 font-semibold text-black">Criar conta e gerar meu plano</button>
+          <button disabled={loading} className="mt-auto rounded-2xl bg-white p-4 font-semibold text-black disabled:opacity-50">
+            {loading ? 'Criando conta...' : 'Criar conta e gerar meu plano'}
+          </button>
         </form>
       )}
     </div>
