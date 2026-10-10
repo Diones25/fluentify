@@ -12,10 +12,12 @@ import { TutorModule } from './tutor/tutor.module.js';
 import { ProgressModule } from './progress/progress.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { AiModule } from './ai/ai.module.js';
+import { ScheduleModule } from '@nestjs/schedule';
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(), // Habilita o @Cron() e outros agendamentos
     // Distributed tracing, auto-correlated logs, request/job metrics, error
     // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
     ObserveModule.forRoot({
