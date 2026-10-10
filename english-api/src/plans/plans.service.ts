@@ -1,42 +1,11 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
-import { z } from 'zod';
 import { AiService } from '../ai/ai.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsageService } from '../ai/usage.service.js';
+import { OutlineSchema, PLAN_PROMPT_VERSION, SYSTEM, WeekSchema, outlinePrompt, weekPrompt } from './prompts.js';
 
 const WEEKS = 4;
-
-// ---------- Schemas (o formato exato que esperamos da IA) ----------
-const LessonSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('SPEAKING'),
-    phrase: z.string().min(3),
-    translation: z.string(),
-    tip: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('VOCAB'),
-    // O prompt pede de 3 a 8 itens. Aceitamos 1+ para nunca perder o plano inteiro
-    // por causa de um dia que a IA encurtou.
-    items: z.array(z.object({ word: z.string(), translation: z.string(), example: z.string() })).min(1).max(8),
-  }),
-  z.object({
-    type: z.literal('CHAT'),
-    scenario: z.string(),
-    goal: z.string(),
-    starter: z.string(),
-  }),
-]);
-
-const DaySchema = z.object({
-  dayNumber: z.number().int().min(1),
-  theme: z.string(),
-  lessons: z.array(LessonSchema).min(1),
-});
-
-const OutlineSchema = (n: number) => z.object({ themes: z.array(z.string()).length(n) });
-const WeekSchema = (n: number) => z.object({ days: z.array(DaySchema).length(n) });
 
 // Quantas atividades cabem no tempo do aluno
 function activitiesPerDay(minutes: number) {
@@ -56,10 +25,6 @@ function lessonMix(perDay: number) {
   while (types.length < perDay) types.push(i++ % 2 === 0 ? 'SPEAKING' : 'VOCAB');
   return types;
 }
-
-const SYSTEM = `You are an expert English teacher for Brazilian Portuguese speakers.
-Respond ONLY with valid JSON. No markdown, no comments, no extra text.
-Translations must be in Brazilian Portuguese. Keep English natural and level-appropriate.`;
 
 @Injectable()
 export class PlansService {
@@ -84,9 +49,7 @@ export class PlansService {
     // ETAPA 1: esqueleto (só os temas)
     const outline = await this.ai.json(
       SYSTEM,
-      `Student level: ${profile.level}. Goal: ${profile.goal}.
-      Create ${totalDays} lesson themes for a ${WEEKS}-week course, in increasing difficulty,
-      without repeating themes. Return: {"themes": ["..."]} with exactly ${totalDays} items.`,
+      outlinePrompt(profile.level, profile.goal, totalDays),
       OutlineSchema(totalDays),
       ctx,
       {
@@ -106,23 +69,14 @@ export class PlansService {
 
       return this.ai.json(
         SYSTEM,
-        `Student level: ${profile.level}. Goal: ${profile.goal}. Daily time: ${profile.minutesPerDay} minutes.
-        Create the lessons for these days: ${JSON.stringify(days)}.
-
-        For EVERY day, create exactly ${perDay} lessons in this exact order:
-        ${mixLines}
-
-        Hard requirements:
-        - Every day must have exactly ${perDay} lessons, in the order above.
-        - Every VOCAB lesson must have between 3 and 8 items. Never fewer than 3.
-        - Reuse the "dayNumber" and "theme" exactly as given, do not invent new ones.
-
-        Formats:
-        SPEAKING: {"type":"SPEAKING","phrase":"...","translation":"...","tip":"..."}
-        VOCAB: {"type":"VOCAB","items":[{"word":"...","translation":"...","example":"..."},{"word":"...","translation":"...","example":"..."},{"word":"...","translation":"...","example":"..."}]}
-        CHAT: {"type":"CHAT","scenario":"...","goal":"...","starter":"..."}
-
-        Return: {"days":[{"dayNumber":1,"theme":"...","lessons":[...]}]}`,
+        weekPrompt({
+          level: profile.level,
+          goal: profile.goal,
+          minutesPerDay: profile.minutesPerDay,
+          days,
+          perDay,
+          mixLines,
+        }),
         WeekSchema(days.length),
         ctx, { tier: 'fast', maxTokens: 8000 }
       ).catch((e) => {
@@ -150,6 +104,7 @@ export class PlansService {
         data: {
           userId,
           weeks: WEEKS,
+          promptVersion: PLAN_PROMPT_VERSION,
           days: {
             create: allDays.map((d) => ({
               dayNumber: d.dayNumber,

@@ -16,11 +16,16 @@ import { ScheduleModule } from '@nestjs/schedule';
 import basicAuth from 'express-basic-auth';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
+import { LoggerModule } from 'nestjs-pino';
+import { APP_FILTER } from '@nestjs/core';
+import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
+import { HealthController } from './health.controller.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ScheduleModule.forRoot(), // Habilita o @Cron() e outros agendamentos
     // Distributed tracing, auto-correlated logs, request/job metrics, error
     // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
@@ -46,6 +51,12 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
         users: { [process.env.DASHBOARD_USER ?? 'admin']: process.env.DASHBOARD_PASS ?? 'admin' },
       }),
     }),
+    LoggerModule.forRoot({
+      pinoHttp: {
+        redact: ['req.headers.authorization', 'req.headers.cookie'], // nunca logue token!
+        transport: process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined,
+      },
+    }),
     AuthModule,
     ProfileModule,
     PlansModule,
@@ -56,11 +67,17 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     PrismaModule,
     AiModule,
   ],
-  controllers: [],
+  controllers: [
+    HealthController
+  ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard
+    },
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter
     }
   ],
 })

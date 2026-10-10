@@ -5,6 +5,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './auth/AuthContext';
 import App from './App';
 import './index.css';
+import * as Sentry from '@sentry/react';
+
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN, enabled: !!import.meta.env.VITE_SENTRY_DSN
+});
 
 const queryClient = new QueryClient();
 
