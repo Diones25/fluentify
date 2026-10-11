@@ -20,6 +20,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { APP_FILTER } from '@nestjs/core';
 import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { HealthController } from './health.controller.js';
+import { MailModule } from './mail/mail.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -66,6 +67,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ProgressModule,
     PrismaModule,
     AiModule,
+    MailModule,
   ],
   controllers: [
     HealthController
