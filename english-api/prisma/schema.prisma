@@ -43,7 +43,7 @@ model User {
   id            String         @id @default(uuid())
   email         String         @unique
   name          String
-  passwordHash  String
+  passwordHash  String?
   createdAt     DateTime       @default(now())
   profile       Profile?
   plans         StudyPlan[]
@@ -51,6 +51,8 @@ model User {
   attempts      Attempt[]
   streak        Streak?
   aiUsage AiUsage[]
+  refreshTokens RefreshToken[]
+  passwordResets PasswordReset[]
 }
 
 model Profile {
@@ -147,4 +149,25 @@ model AiUsage {
   user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, day, feature])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique // guardamos só o hash, nunca o token puro
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
