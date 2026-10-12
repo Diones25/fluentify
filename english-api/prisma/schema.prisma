@@ -54,6 +54,7 @@ model User {
   aiUsage AiUsage[]
   refreshTokens RefreshToken[]
   passwordResets PasswordReset[]
+  reviewCards ReviewCard[]
 }
 
 model Profile {
@@ -171,4 +172,20 @@ model PasswordReset {
   expiresAt DateTime
   usedAt    DateTime?
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ReviewCard {
+  id        String   @id @default(uuid())
+  userId    String
+  front     String   // o que o aluno vê (ex.: "table")
+  back      String   // a resposta (ex.: "mesa")
+  ease      Float    @default(2.5)  // "facilidade" do cartão
+  interval  Int      @default(0)    // dias até a próxima revisão
+  reps      Int      @default(0)    // acertos seguidos
+  dueAt     DateTime @default(now())
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, front]) // evita cartão duplicado
+  @@index([userId, dueAt])
 }
