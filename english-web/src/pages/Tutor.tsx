@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { API_URL } from '../lib/api';
+import { API_URL, authFetch } from '../lib/api';
 import { speak } from '../lib/speech';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
@@ -38,12 +38,9 @@ export default function Tutor() {
 
     let full = '';
     try {
-      const res = await fetch(`${API_URL}/tutor/message`, {
+      const res = await authFetch(`${API_URL}/tutor/message`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, conversationId, topic }),
       });
       if (!res.ok || !res.body) throw new Error('Falha na requisição');
