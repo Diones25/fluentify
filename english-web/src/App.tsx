@@ -6,6 +6,7 @@ import Onboarding from './pages/Onboarding.tsx';
 import Home from './pages/Home.tsx';
 import Tutor from './pages/Tutor.tsx';
 import Progress from './pages/Progress.tsx';
+import Review from './pages/Review.tsx';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/home" element={<Home />} />
           <Route path="/tutor" element={<Tutor />} />
           <Route path="/progress" element={<Progress />} />
+          <Route path="/review" element={<Review />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/home" replace />} />
