@@ -2,13 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProgressService } from '../progress/progress.service.js';
 import { ReviewsService } from '../reviews/reviews.service.js';
+import { LevelService } from '../profile/level.service.js';
 
 @Injectable()
 export class LessonsService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly progressService: ProgressService,
-    private readonly reviewService: ReviewsService
+    private readonly reviewService: ReviewsService,
+    private readonly levelService: LevelService
   ) {}
   
   async today(userId: string) {
@@ -61,6 +63,9 @@ export class LessonsService {
       })),
     );
     await this.reviewService.addMany(userId, cards);
+
+    // Recalibra o nível conforme o desempenho recente (a cada dia concluído).
+    await this.levelService.recalibrate(userId);
 
     return updated;
   }

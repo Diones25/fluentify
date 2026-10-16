@@ -55,6 +55,7 @@ model User {
   refreshTokens RefreshToken[]
   passwordResets PasswordReset[]
   reviewCards ReviewCard[]
+  levelHistory LevelHistory[]
 }
 
 model Profile {
@@ -139,6 +140,18 @@ model Streak {
   best          Int     @default(0)
   lastActiveDay String? // "YYYY-MM-DD"
   user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LevelHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  from      Level
+  to        Level
+  avgScore  Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model AiUsage {

@@ -2,9 +2,12 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../auth/AuthContext';
+import Placement from '../components/Placement';
 
 type Option = { value: string | number; label: string };
 type Step = { key: string; question: string; options: Option[] };
+
+const ORDER = ['BEGINNER', 'ELEMENTARY', 'INTERMEDIATE', 'UPPER_INTERMEDIATE', 'ADVANCED'];
 
 const steps: Step[] = [
   {
@@ -65,6 +68,8 @@ export default function Onboarding() {
   const [i, setI] = useState(0); // passo atual
   const [answers, setAnswers] = useState<Record<string, string | number>>({});
   const [selected, setSelected] = useState<string | number | null>(null);
+  const [placementDone, setPlacementDone] = useState(false);
+  const [testedLevel, setTestedLevel] = useState<string | null>(null);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -87,7 +92,10 @@ export default function Onboarding() {
     setError('');
     try {
       await register(name, email, password); // 1) cria conta
-      await api.put('/profile', answers); // 2) salva respostas
+      const declared = ORDER.indexOf(String(answers.level));
+      const tested = testedLevel ? ORDER.indexOf(testedLevel) : declared;
+      const level = ORDER[Math.min(declared, tested)]; // regra: vale o MENOR dos dois
+      await api.put('/profile', { ...answers, level }); // 2) salva respostas
       let jobId: string | undefined;
       try {
         jobId = (await api.post<{ jobId: string }>('/plans/generate')).data.jobId;
@@ -99,6 +107,10 @@ export default function Onboarding() {
       setError('Não foi possível criar a conta. Verifique os dados.');
       setLoading(false);
     }
+  }
+
+  if (i === 1 && !placementDone) {
+    return <Placement onDone={(lvl) => { setTestedLevel(lvl); setPlacementDone(true); }} onSkip={() => setPlacementDone(true)} />;
   }
 
   return (
