@@ -21,6 +21,7 @@ import { APP_FILTER } from '@nestjs/core';
 import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { HealthController } from './health.controller.js';
 import { MailModule } from './mail/mail.module.js';
+import { ReviewsModule } from './reviews/reviews.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -68,6 +69,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     PrismaModule,
     AiModule,
     MailModule,
+    ReviewsModule,
   ],
   controllers: [
     HealthController

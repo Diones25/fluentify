@@ -12,7 +12,7 @@ export default function SpeakingExercise({ lessonId, phrase, translation, tip }:
 
   const evaluate = useMutation({
     mutationFn: async (transcript: string) =>
-      (await api.post<EvalResult>('/speaking/evaluate', { lessonId, expected: phrase, transcript })).data,
+      (await api.post<EvalResult>('/speaking/evaluate', { lessonId, expected: phrase, transcript, translation })).data,
   });
 
   // Quando o microfone terminou e temos texto, manda para avaliar.

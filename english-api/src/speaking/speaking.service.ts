@@ -3,6 +3,7 @@ import { AiService } from '../ai/ai.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { EvaluateDto } from './dto/evaluate.dto.js';
 import { UsageService } from '../ai/usage.service.js';
+import { ReviewsService } from '../reviews/reviews.service.js';
 import { lcsMatches, normalize } from './lcs.js';
 
 @Injectable()
@@ -11,7 +12,8 @@ export class SpeakingService {
   constructor(
     private prisma: PrismaService,
     private readonly ai: AiService,
-    private readonly usage: UsageService
+    private readonly usage: UsageService,
+    private readonly reviews: ReviewsService
   ) { }
 
   async evaluate(userId: string, dto: EvaluateDto) {
@@ -43,6 +45,11 @@ export class SpeakingService {
       } catch (e) {
         this.logger.warn(`Falha ao gerar dica: ${(e as Error).message}`);
       }
+    }
+
+    // Frase falada mal (< 80%) vira cartão de revisão.
+    if (score < 80) {
+      await this.reviews.addMany(userId, [{ front: dto.expected, back: dto.translation ?? 'Repita em voz alta' }]);
     }
 
     await this.prisma.attempt.create({
