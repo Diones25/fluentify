@@ -95,7 +95,7 @@ export default function Onboarding() {
       const declared = ORDER.indexOf(String(answers.level));
       const tested = testedLevel ? ORDER.indexOf(testedLevel) : declared;
       const level = ORDER[Math.min(declared, tested)]; // regra: vale o MENOR dos dois
-      await api.put('/profile', { ...answers, level }); // 2) salva respostas
+      await api.put('/profile', { ...answers, level, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }); // 2) salva respostas
       let jobId: string | undefined;
       try {
         jobId = (await api.post<{ jobId: string }>('/plans/generate')).data.jobId;

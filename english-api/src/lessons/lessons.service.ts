@@ -50,10 +50,10 @@ export class LessonsService {
     // Segurança: só conclui se o dia pertence a um plano DESTE usuário.
     const day = await this.prismaService.planDay.findFirst({ where: { id: dayId, plan: { userId } } });
     if (!day) throw new NotFoundException('Dia não encontrado');
-    if (day.completedAt) return day;
+    if (day.completedAt) return { day, usedFreeze: false, earnedFreeze: false };
 
     const updated = await this.prismaService.planDay.update({ where: { id: dayId }, data: { completedAt: new Date() } });
-    await this.progressService.registerActivity(userId);
+    const streak = await this.progressService.registerActivity(userId);
 
     const vocab = await this.prismaService.lesson.findMany({ where: { planDayId: dayId, type: 'VOCAB' } });
     const cards = vocab.flatMap((l) =>
@@ -67,6 +67,6 @@ export class LessonsService {
     // Recalibra o nível conforme o desempenho recente (a cada dia concluído).
     await this.levelService.recalibrate(userId);
 
-    return updated;
+    return { day: updated, usedFreeze: streak.usedFreeze, earnedFreeze: streak.earnedFreeze };
   }
 }

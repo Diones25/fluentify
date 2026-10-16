@@ -66,6 +66,7 @@ model Profile {
   minutesPerDay Int
   daysPerWeek   Int
   audioMode     AudioMode @default(ALWAYS)
+  timezone      String    @default("America/Sao_Paulo")
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -138,6 +139,7 @@ model Streak {
   userId        String  @id
   current       Int     @default(0)
   best          Int     @default(0)
+  freezes       Int     @default(1) // congeladores disponíveis
   lastActiveDay String? // "YYYY-MM-DD"
   user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

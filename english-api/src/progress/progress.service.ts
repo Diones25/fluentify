@@ -2,11 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import { AiService } from '../ai/ai.service.js';
 import { UsageService } from '../ai/usage.service.js';
+import { dayKey, safeTz } from '../common/tz.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-
-const TZ = 'America/Fortaleza'; // fuso do aluno. Melhoria: guardar o fuso no perfil.
-
-const dayKey = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: TZ }); // "2026-10-03"
+import { nextStreak, visibleStreak } from './streak.js';
 
 const IGNORE = new Set(['a', 'an', 'the', 'to', 'of', 'in', 'on', 'is', 'it', 'i']); // palavrinhas que o microfone costuma "comer"
 
@@ -20,31 +18,30 @@ export class ProgressService {
 
   /** Chamado quando o aluno conclui uma lição do dia. */
   async registerActivity(userId: string) {
-    const today = dayKey(new Date());
-    const yesterday = dayKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    const profile = await this.prisma.profile.findUnique({ where: { userId }, select: { timezone: true } });
+    const today = dayKey(new Date(), safeTz(profile?.timezone));
+
     const s = await this.prisma.streak.findUnique({ where: { userId } });
+    const state = s ?? { current: 0, best: 0, freezes: 1, lastActiveDay: null };
+    const n = nextStreak(state, today);
 
-    if (!s) {
-      return this.prisma.streak.create({ data: { userId, current: 1, best: 1, lastActiveDay: today } });
-    }
-    if (s.lastActiveDay === today) return s; // já contou hoje
-
-    const current = s.lastActiveDay === yesterday ? s.current + 1 : 1;
-    return this.prisma.streak.update({
-      where: { userId },
-      data: { current, best: Math.max(s.best, current), lastActiveDay: today },
-    });
+    const data = { current: n.current, best: n.best, freezes: n.freezes, lastActiveDay: today };
+    const saved = await this.prisma.streak.upsert({ where: { userId }, create: { userId, ...data }, update: data });
+    return { ...saved, usedFreeze: n.usedFreeze, earnedFreeze: n.earnedFreeze };
   }
 
   async summary(userId: string) {
-    const [streak, completedDays, recent] = await Promise.all([
+    const [profile, streak, completedDays, recent] = await Promise.all([
+      this.prisma.profile.findUnique({ where: { userId }, select: { timezone: true } }),
       this.prisma.streak.findUnique({ where: { userId } }),
       this.prisma.planDay.count({ where: { plan: { userId }, completedAt: { not: null } } }),
       this.prisma.attempt.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 20, select: { score: true, createdAt: true } }),
     ]);
     const avgScore = recent.length ? Math.round(recent.reduce((a, b) => a + b.score, 0) / recent.length) : null;
+    const tz = safeTz(profile?.timezone);
+    const streakShown = visibleStreak(streak, dayKey(new Date(), tz));
     return {
-      streak: { current: streak?.current ?? 0, best: streak?.best ?? 0 },
+      streak: { current: streakShown, best: streak?.best ?? 0, freezes: streak?.freezes ?? 1 },
       completedDays,
       avgScore,
       recentScores: recent.reverse(),

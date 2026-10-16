@@ -13,7 +13,7 @@ export type Today = {
 export type EvalResult = { score: number; words: { word: string; ok: boolean }[]; tip: string | null };
 
 export type ProgressSummary = {
-  streak: { current: number; best: number };
+  streak: { current: number; best: number; freezes: number };
   completedDays: number;
   avgScore: number | null;
   recentScores: { score: number; createdAt: string }[];

@@ -34,6 +34,7 @@ export default function Progress() {
       <div className="grid grid-cols-2 gap-3">
         {stat('🔥 Sequência atual', `${data.streak.current} dias`)}
         {stat('🏆 Melhor sequência', `${data.streak.best} dias`)}
+        {stat('❄️ Congeladores', data.streak.freezes)}
         {stat('Dias concluídos', data.completedDays)}
         {stat('Nota média na fala', data.avgScore !== null ? `${data.avgScore}%` : '-')}
       </div>
