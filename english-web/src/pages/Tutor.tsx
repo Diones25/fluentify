@@ -4,7 +4,12 @@ import { API_URL, authFetch } from '../lib/api';
 import { speak } from '../lib/speech';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
-type Msg = { role: 'user' | 'assistant'; content: string };
+type Analysis = {
+  corrections: { original: string; corrected: string; explanation: string }[];
+  newWords: { word: string; translation: string }[];
+};
+
+type Msg = { role: 'user' | 'assistant'; content: string; analysis?: Analysis };
 
 export default function Tutor() {
   const [params] = useSearchParams();
@@ -70,6 +75,14 @@ export default function Tutor() {
               return copy;
             });
           }
+          if (ev.type === 'analysis') {
+            setMessages((m) => {
+              const copy = [...m];
+              const idx = copy.length - 2;
+              if (copy[idx]?.role === 'user') copy[idx] = { ...copy[idx], analysis: { corrections: ev.corrections, newWords: ev.newWords } };
+              return copy;
+            });
+          }
           if (ev.type === 'error') throw new Error('Erro do servidor');
         }
       }
@@ -93,12 +106,19 @@ export default function Tutor() {
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto">
         {messages.length === 0 && <p className="mt-10 text-center text-neutral-500">Diga “Hello!” para começar 👋</p>}
         {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`max-w-[85%] whitespace-pre-wrap rounded-2xl p-3 ${m.role === 'user' ? 'self-end bg-emerald-500 text-black' : 'self-start bg-neutral-900'
-              }`}
-          >
-            {m.content || '...'}
+          <div key={i} className={`flex max-w-[85%] flex-col gap-1 ${m.role === 'user' ? 'self-end' : 'self-start'}`}>
+            <div className={`whitespace-pre-wrap rounded-2xl p-3 ${m.role === 'user' ? 'bg-emerald-500 text-black' : 'bg-neutral-900'}`}>
+              {m.content || '...'}
+            </div>
+            {m.analysis?.corrections.map((c, k) => (
+              <div key={k} className="rounded-xl bg-neutral-900/70 p-2 text-xs">
+                <span className="text-red-400 line-through">{c.original}</span> → <span className="text-emerald-400">{c.corrected}</span>
+                <p className="mt-1 text-neutral-400">{c.explanation}</p>
+              </div>
+            ))}
+            {!!m.analysis?.newWords.length && (
+              <p className="text-xs text-sky-300">+ {m.analysis.newWords.map((w) => `${w.word} (${w.translation})`).join(' · ')}</p>
+            )}
           </div>
         ))}
         <div ref={bottomRef} />
