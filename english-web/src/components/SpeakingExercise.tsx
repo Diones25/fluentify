@@ -5,7 +5,7 @@ import { speak } from '../lib/speech';
 import type { EvalResult } from '../lib/types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 
-type Props = { lessonId: string; phrase: string; translation: string; tip?: string };
+type Props = { lessonId?: string; phrase: string; translation: string; tip?: string };
 
 export default function SpeakingExercise({ lessonId, phrase, translation, tip }: Props) {
   const sr = useSpeechRecognition('en-US');
