@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { EvaluateDto } from './dto/evaluate.dto.js';
 import { UsageService } from '../ai/usage.service.js';
 import { ReviewsService } from '../reviews/reviews.service.js';
+import { GamificationService, XP } from '../gamification/gamification.service.js';
 import { lcsMatches, normalize } from './lcs.js';
 
 @Injectable()
@@ -13,7 +14,8 @@ export class SpeakingService {
     private prisma: PrismaService,
     private readonly ai: AiService,
     private readonly usage: UsageService,
-    private readonly reviews: ReviewsService
+    private readonly reviews: ReviewsService,
+    private readonly game: GamificationService
   ) { }
 
   async evaluate(userId: string, dto: EvaluateDto) {
@@ -52,6 +54,13 @@ export class SpeakingService {
       await this.reviews.addMany(userId, [{ front: dto.expected, back: dto.translation ?? 'Repita em voz alta' }]);
     }
 
+    // XP: só na 1ª vez que acerta ≥ 90% NESTE exercício (evita abuso).
+    let xpGained = 0;
+    if (score >= 90 && dto.lessonId) {
+      const already = await this.prisma.attempt.count({ where: { userId, lessonId: dto.lessonId, score: { gte: 90 } } });
+      if (already === 0) xpGained = XP.SPEAKING_GREAT;
+    }
+
     await this.prisma.attempt.create({
       data: {
         userId,
@@ -63,6 +72,9 @@ export class SpeakingService {
       },
     });
 
-    return { score, words, tip };
+    if (xpGained) await this.game.award(userId, xpGained);
+    const newAchievements = score === 100 ? await this.game.check(userId) : [];
+
+    return { score, words, tip, xpGained, newAchievements };
   }
 }

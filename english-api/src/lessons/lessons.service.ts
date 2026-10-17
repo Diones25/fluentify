@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { GamificationService, XP } from '../gamification/gamification.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProgressService } from '../progress/progress.service.js';
 import { ReviewsService } from '../reviews/reviews.service.js';
@@ -10,9 +11,10 @@ export class LessonsService {
     private readonly prismaService: PrismaService,
     private readonly progressService: ProgressService,
     private readonly reviewService: ReviewsService,
-    private readonly levelService: LevelService
-  ) {}
-  
+    private readonly levelService: LevelService,
+    private readonly gameService: GamificationService
+  ) { }
+
   async today(userId: string) {
     const plan = await this.prismaService.studyPlan.findFirst({
       where: { userId, status: 'ACTIVE' },
@@ -50,11 +52,11 @@ export class LessonsService {
     // Segurança: só conclui se o dia pertence a um plano DESTE usuário.
     const day = await this.prismaService.planDay.findFirst({ where: { id: dayId, plan: { userId } } });
     if (!day) throw new NotFoundException('Dia não encontrado');
-    if (day.completedAt) return { day, usedFreeze: false, earnedFreeze: false };
+    if (day.completedAt) return { alreadyDone: true as const };
 
     const updated = await this.prismaService.planDay.update({ where: { id: dayId }, data: { completedAt: new Date() } });
-    const streak = await this.progressService.registerActivity(userId);
 
+    // (5) vocabulário vira cartões de revisão
     const vocab = await this.prismaService.lesson.findMany({ where: { planDayId: dayId, type: 'VOCAB' } });
     const cards = vocab.flatMap((l) =>
       ((l.content as { items: { word: string; translation: string; example: string }[] }).items).map((i) => ({
@@ -64,9 +66,25 @@ export class LessonsService {
     );
     await this.reviewService.addMany(userId, cards);
 
-    // Recalibra o nível conforme o desempenho recente (a cada dia concluído).
-    await this.levelService.recalibrate(userId);
+    // (9) streak com congelador e fuso
+    const streak = await this.progressService.registerActivity(userId);
 
-    return { day: updated, usedFreeze: streak.usedFreeze, earnedFreeze: streak.earnedFreeze };
+    // (10) XP e conquistas
+    const xp = await this.gameService.award(userId, XP.DAY);
+    const newAchievements = await this.gameService.check(userId);
+
+    // (8) a cada semana de estudo concluída, recalibra o nível
+    const profile = await this.prismaService.profile.findUnique({ where: { userId } });
+    const done = await this.prismaService.planDay.count({ where: { planId: day.planId, completedAt: { not: null } } });
+    const levelChange = profile && done % profile.daysPerWeek === 0 ? await this.levelService.recalibrate(userId) : null;
+
+    return {
+      day: updated,
+      xpGained: XP.DAY,
+      ...xp,
+      streak: { current: streak.current, usedFreeze: streak.usedFreeze, earnedFreeze: streak.earnedFreeze },
+      newAchievements,
+      levelChange,
+    };
   }
 }

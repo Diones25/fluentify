@@ -49,6 +49,29 @@ export default function Progress() {
       </div>
 
       <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
+        <div className="flex items-center justify-between text-sm">
+          <p className="text-neutral-400">Nível {data.level}</p>
+          <p className="text-neutral-500">{data.xp} XP</p>
+        </div>
+        <div className="mt-2 h-2 rounded bg-neutral-800">
+          <div className="h-2 rounded bg-amber-400" style={{ width: `${data.levelProgress}%` }} />
+        </div>
+        <p className="mt-3 text-sm text-neutral-400">Meta da semana: {data.weekDone}/{data.weekGoal} dias</p>
+      </div>
+
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
+        <p className="mb-3 text-sm text-neutral-400">Conquistas</p>
+        <div className="grid grid-cols-3 gap-2">
+          {data.achievements.map((a) => (
+            <div key={a.code} className={`rounded-2xl p-3 text-center text-xs ${a.unlockedAt ? 'bg-amber-400/10' : 'bg-neutral-900 opacity-40'}`}>
+              <p className="text-2xl">{a.emoji}</p>
+              <p>{a.title}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-4">
         <p className="mb-3 text-sm text-neutral-400">Palavras que você mais erra</p>
         <div className="flex flex-wrap gap-2">
           {weak.data?.map((w) => (

@@ -10,11 +10,23 @@ export type Today = {
   completedDays: number;
 };
 
-export type EvalResult = { score: number; words: { word: string; ok: boolean }[]; tip: string | null };
+export type EvalResult = {
+  score: number;
+  words: { word: string; ok: boolean }[];
+  tip: string | null;
+  xpGained: number;
+  newAchievements: { code: string; title: string; emoji: string }[];
+};
 
 export type ProgressSummary = {
   streak: { current: number; best: number; freezes: number };
   completedDays: number;
   avgScore: number | null;
   recentScores: { score: number; createdAt: string }[];
+  xp: number;
+  level: number;
+  levelProgress: number;
+  weekDone: number;
+  weekGoal: number;
+  achievements: { code: string; title: string; desc: string; emoji: string; unlockedAt: string | null }[];
 };

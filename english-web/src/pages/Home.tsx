@@ -5,11 +5,12 @@ import { api } from '../lib/api';
 import type { Today } from '../lib/types';
 import SpeakingExercise from '../components/SpeakingExercise';
 import VocabCard from '../components/VocabCard';
+import CelebrationModal, { type CompleteResult } from '../components/CelebrationModal';
 import { usePlanJob } from '../hooks/usePlanJob';
 
 export default function Home() {
   const qc = useQueryClient();
-  const [notice, setNotice] = useState('');
+  const [result, setResult] = useState<CompleteResult | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['today'],
@@ -20,12 +21,12 @@ export default function Home() {
   const plan = usePlanJob(params.get('job'));      // aceita ?job=ID vindo do onboarding
 
   const complete = useMutation({
-    mutationFn: (dayId: string) => api.post<{ usedFreeze: boolean; earnedFreeze: boolean }>(`/lessons/days/${dayId}/complete`),
-    onSuccess: (res) => {
+    mutationFn: async (dayId: string) =>
+      (await api.post<CompleteResult & { alreadyDone?: boolean }>(`/lessons/days/${dayId}/complete`)).data,
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['today'] });
       qc.invalidateQueries({ queryKey: ['progress'] });
-      if (res.data?.usedFreeze) setNotice('❄️ Seu congelador salvou sua sequência!');
-      else if (res.data?.earnedFreeze) setNotice('❄️ Você ganhou um congelador!');
+      if (!data.alreadyDone) setResult(data);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
   });
@@ -68,7 +69,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-4">
-      {notice && <p className="rounded-xl bg-sky-500/15 p-3 text-sm text-sky-200">{notice}</p>}
       <header>
         <p className="text-xs text-neutral-500">DIA {day.dayNumber} DE {data.totalDays}</p>
         <h1 className="text-2xl font-bold">{day.theme}</h1>
@@ -102,6 +102,8 @@ export default function Home() {
       >
         Concluir o dia ✅
       </button>
+
+      {result && <CelebrationModal r={result} onClose={() => setResult(null)} />}
     </div>
   );
 }

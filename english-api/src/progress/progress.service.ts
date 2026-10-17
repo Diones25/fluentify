@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 import { AiService } from '../ai/ai.service.js';
 import { UsageService } from '../ai/usage.service.js';
-import { dayKey, safeTz } from '../common/tz.js';
+import { dayKey, safeTz, weekStart } from '../common/tz.js';
+import { ACHIEVEMENTS, levelFromXp, xpForLevel } from '../gamification/gamification.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { nextStreak, visibleStreak } from './streak.js';
 
@@ -31,20 +32,34 @@ export class ProgressService {
   }
 
   async summary(userId: string) {
-    const [profile, streak, completedDays, recent] = await Promise.all([
-      this.prisma.profile.findUnique({ where: { userId }, select: { timezone: true } }),
+    const [profile, streak, completedDays, recent, user] = await Promise.all([
+      this.prisma.profile.findUnique({ where: { userId }, select: { timezone: true, daysPerWeek: true } }),
       this.prisma.streak.findUnique({ where: { userId } }),
       this.prisma.planDay.count({ where: { plan: { userId }, completedAt: { not: null } } }),
       this.prisma.attempt.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 20, select: { score: true, createdAt: true } }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { xp: true, achievements: true } }),
     ]);
     const avgScore = recent.length ? Math.round(recent.reduce((a, b) => a + b.score, 0) / recent.length) : null;
     const tz = safeTz(profile?.timezone);
     const streakShown = visibleStreak(streak, dayKey(new Date(), tz));
+    const weekDone = await this.prisma.planDay.count({
+      where: { plan: { userId }, completedAt: { gte: weekStart(tz) } },
+    });
+
+    const xp = user?.xp ?? 0;
+    const level = levelFromXp(xp);
+    const cur = xpForLevel(level), next = xpForLevel(level + 1);
+
     return {
       streak: { current: streakShown, best: streak?.best ?? 0, freezes: streak?.freezes ?? 1 },
       completedDays,
       avgScore,
       recentScores: recent.reverse(),
+      xp, level, levelProgress: Math.round(((xp - cur) / (next - cur)) * 100),
+      weekDone, weekGoal: profile?.daysPerWeek ?? 3,
+      achievements: Object.entries(ACHIEVEMENTS).map(([code, a]) => ({
+        code, ...a, unlockedAt: user?.achievements.find((x) => x.code === code)?.unlockedAt ?? null,
+      })),
     };
   }
 
