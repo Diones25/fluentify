@@ -58,6 +58,7 @@ model User {
   reviewCards ReviewCard[]
   levelHistory LevelHistory[]
   achievements UserAchievement[]
+  missionRuns MissionRun[]
 }
 
 model Profile {
@@ -144,6 +145,20 @@ model Streak {
   freezes       Int     @default(1) // congeladores disponíveis
   lastActiveDay String? // "YYYY-MM-DD"
   user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MissionRun {
+  id             String    @id @default(uuid())
+  userId         String
+  missionId      String
+  conversationId String
+  score          Int?
+  goals          Json?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, missionId])
 }
 
 model UserAchievement {

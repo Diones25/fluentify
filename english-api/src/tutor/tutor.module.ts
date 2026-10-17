@@ -6,6 +6,7 @@ import { TutorService } from './tutor.service.js';
 @Module({
   imports: [ReviewsModule],
   controllers: [TutorController],
-  providers: [TutorService]
+  providers: [TutorService],
+  exports: [TutorService]
 })
 export class TutorModule {}

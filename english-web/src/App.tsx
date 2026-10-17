@@ -7,6 +7,8 @@ import Home from './pages/Home.tsx';
 import Tutor from './pages/Tutor.tsx';
 import Progress from './pages/Progress.tsx';
 import Review from './pages/Review.tsx';
+import Missions from './pages/Missions.tsx';
+import MissionRun from './pages/MissionRun.tsx';
 
 export default function App() {
   return (
@@ -19,6 +21,8 @@ export default function App() {
           <Route path="/tutor" element={<Tutor />} />
           <Route path="/progress" element={<Progress />} />
           <Route path="/review" element={<Review />} />
+          <Route path="/missions" element={<Missions />} />
+          <Route path="/missions/run/:runId" element={<MissionRun />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/home" replace />} />

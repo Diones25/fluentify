@@ -13,6 +13,7 @@ export default function Layout() {
         <NavLink to="/home" className={link}>Hoje</NavLink>
         <NavLink to="/tutor" className={link}>Professor</NavLink>
         <NavLink to="/progress" className={link}>Progresso</NavLink>
+        <NavLink to="/missions" className={link}>Missões</NavLink>
         <NavLink to="/review" className={link}>Revisão</NavLink>
       </nav>
     </div>

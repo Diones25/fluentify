@@ -28,15 +28,14 @@ export class GamificationService {
 
   /** Confere as regras e devolve só as conquistas NOVAS. */
   async check(userId: string) {
-    const [days, streak, perfect, learned, owned] = await Promise.all([
+    const [days, streak, perfect, learned, missions, owned] = await Promise.all([
       this.prisma.planDay.count({ where: { plan: { userId }, completedAt: { not: null } } }),
       this.prisma.streak.findUnique({ where: { userId } }),
       this.prisma.attempt.count({ where: { userId, score: 100 } }),
       this.prisma.reviewCard.count({ where: { userId, reps: { gte: 3 } } }),
+      this.prisma.missionRun.count({ where: { userId, completedAt: { not: null } } }), // missões concluídas (item 11)
       this.prisma.userAchievement.findMany({ where: { userId }, select: { code: true } }),
     ]);
-    // TODO(item 11): contar as missões concluídas (tabela MissionRun) e destravar FIRST_MISSION.
-    const missions: number = 0;
 
     const rules: Record<string, boolean> = {
       FIRST_DAY: days >= 1,

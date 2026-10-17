@@ -24,6 +24,7 @@ import { MailModule } from './mail/mail.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { PlacementModule } from './placement/placement.module.js';
 import { GamificationModule } from './gamification/gamification.module.js';
+import { MissionsModule } from './missions/missions.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -74,6 +75,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ReviewsModule,
     PlacementModule,
     GamificationModule,
+    MissionsModule,
   ],
   controllers: [
     HealthController
