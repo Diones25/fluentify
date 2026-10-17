@@ -12,6 +12,8 @@ type Ctx = {
 };
 
 const AuthContext = createContext<Ctx>(null!);
+// O arquivo exporta o provider (componente) e o hook; o Fast Refresh aceita isso com o disable abaixo.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: ReactNode }) {

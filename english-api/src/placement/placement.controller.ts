@@ -2,7 +2,7 @@ import { Body, Controller, Get, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Type } from 'class-transformer';
 import { IsArray, IsInt, Max, Min, ValidateNested } from 'class-validator';
-import { LEVEL_ORDER, QUESTIONS, levelFromCorrect } from './questions.js';
+import { QUESTIONS, levelFromCorrect } from './questions.js';
 
 class AnswerDto {
   @IsInt() id: number;
