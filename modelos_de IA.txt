@@ -1,0 +1,6 @@
+1. Para Testes de Baixo Custo e Alta Velocidade (Obrigatórios)
+• gpt-4o-mini: É o melhor modelo custo-benefício para iniciar os testes. Ele é extremamente rápido, muito barato e tem uma excelente compreensão gramatical do inglês. Ideal para conversas cotidianas.
+• gpt-5.6-luna ou gpt-6-luna: Se você estiver utilizando as infraestruturas e SDKs atualizados da OpenAI, os modelos da linha Luna são a escolha padrão atual focada em altíssima eficiência, velocidade e baixo custo para tarefas de alto volume.
+2. Para Testes Avançados (Maior Vocabulário e Fluidez Natural)
+• gpt-4o: Excelente se você precisar que a IA avalie nuances de sotaque, gírias ou expressões mais complexas com maior precisão que a versão mini.
+• gpt-4.5: Famoso por sua incrível capacidade de soar muito mais natural, empático e humano em conversas textuais quando comparado ao tom levemente "robótico" dos modelos anteriores. Excelente para simular um parceiro de conversação real.
