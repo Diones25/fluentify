@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './auth/ProtectedRoute';
 import Layout from './components/Layout.tsx';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword.tsx';
+import ResetPassword from './pages/ResetPassword.tsx';
 import Onboarding from './pages/Onboarding.tsx';
 import Home from './pages/Home.tsx';
 import Tutor from './pages/Tutor.tsx';
@@ -15,6 +17,8 @@ export default function App() {
     <Routes>
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot" element={<ForgotPassword />} />
+      <Route path="/reset" element={<ResetPassword />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route path="/home" element={<Home />} />
