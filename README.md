@@ -258,6 +258,8 @@ npm run dev
 A SPA sobe em `http://localhost:5173`.
 
 > Sem uma `OPENAI_API_KEY` válida, o login e o conteúdo já seedado funcionam, mas geração de plano, chat, missões e dicas de IA vão falhar.
+>
+> Para recuperação de senha, se não houver `RESEND_API_KEY` ou o envio falhar, a API imprime o conteúdo do e-mail no console em desenvolvimento. Copie o link `/reset?token=...` de lá.
 
 ---
 

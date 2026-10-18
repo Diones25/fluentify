@@ -19,11 +19,19 @@ export class MailService {
   async send(to: string, subject: string, html: string) {
     if (!this.resend) {
       this.logger.warn(`(sem RESEND_API_KEY) e-mail para ${to}: ${subject}`);
-      // Em desenvolvimento, imprime o conteúdo para permitir copiar o link de recuperação.
-      if (!this.isProd) this.logger.log(`Conteúdo do e-mail (dev): ${html}`);
+      this.logPreview(html);
       return; // em desenvolvimento, só loga
     }
     const { error } = await this.resend.emails.send({ from: this.from, to, subject, html });
-    if (error) this.logger.error(`Falha ao enviar e-mail: ${error.message}`);
+    if (error) {
+      this.logger.error(`Falha ao enviar e-mail: ${error.message}`);
+      // Não bloqueia o fluxo: em dev, imprime o conteúdo para copiar o link de recuperação.
+      this.logPreview(html);
+    }
+  }
+
+  /** Em desenvolvimento, imprime o HTML (inclui o link de recuperação) no console. */
+  private logPreview(html: string) {
+    if (!this.isProd) this.logger.log(`Conteúdo do e-mail (dev): ${html}`);
   }
 }
