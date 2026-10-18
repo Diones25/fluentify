@@ -478,15 +478,18 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em `push`
 
 As imagens ficam em `docs/screenshots/`. Descomente o bloco abaixo depois de adicioná-las:
 
-<!--
-| Onboarding | Hoje | Chat com correções |
-|---|---|---|
-| ![Onboarding](docs/screenshots/onboarding.png) | ![Hoje](docs/screenshots/home.png) | ![Chat](docs/screenshots/tutor.png) |
+| Onboarding |
+|---|
+| ![Onboarding](docs/screenshots/onboarding.png) |
 
-| Progresso | Revisão | Missões |
-|---|---|---|
-| ![Progresso](docs/screenshots/progress.png) | ![Revisão](docs/screenshots/review.png) | ![Missões](docs/screenshots/missions.png) |
--->
+| Home |
+|---|
+| ![Home](docs/screenshots/home.png) |
+
+| Tutor |
+|---|
+| ![Tutor](docs/screenshots/tutor.png) |
+
 
 ---
 
