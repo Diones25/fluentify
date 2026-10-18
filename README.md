@@ -6,10 +6,8 @@ O objetivo é resolver o problema de quem estuda sozinho: em vez de conteúdo ge
 
 > Projeto full-stack desenvolvido como estudo aprofundado de arquitetura, integração com LLMs, algoritmos de aprendizado e segurança de APIs.
 
-<!--
 Quando o repositório estiver publicado no GitHub, descomente e troque OWNER/REPO:
 [![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
--->
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178C6?logo=typescript&logoColor=white)
 ![NestJS](https://img.shields.io/badge/NestJS-12-E0234E?logo=nestjs&logoColor=white)
