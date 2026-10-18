@@ -476,7 +476,7 @@ O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em `push`
 
 ## Screenshots
 
-As imagens ficam em `docs/screenshots/`. Descomente o bloco abaixo depois de adicioná-las:
+#### Abaixo a lista das telas
 
 | Onboarding |
 |---|
@@ -490,6 +490,13 @@ As imagens ficam em `docs/screenshots/`. Descomente o bloco abaixo depois de adi
 |---|
 | ![Tutor](docs/screenshots/tutor.png) |
 
+| Progress |
+|---|
+| ![Progress](docs/screenshots/progress.png) |
+
+| Mission |
+|---|
+| ![Mission](docs/screenshots/mission.png) |
 
 ---
 
