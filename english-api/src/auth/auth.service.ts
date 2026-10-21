@@ -17,6 +17,7 @@ const REFRESH_DAYS = 30;
 export class AuthService {
   private google: OAuth2Client;
   private isProd: boolean;
+  private cookiePath: string;
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -26,6 +27,7 @@ export class AuthService {
   ) {
     this.google = new OAuth2Client(configService.get('GOOGLE_CLIENT_ID'));
     this.isProd = configService.get('NODE_ENV') === 'production';
+    this.cookiePath = configService.get('COOKIE_PATH') ?? '/auth';
   }
   
   async register(dto: RegisterDto, res: Response) {
@@ -83,7 +85,7 @@ export class AuthService {
       httpOnly: true, // JavaScript do navegador não lê
       secure: this.isProd, // só HTTPS em produção
       sameSite: 'lax',
-      path: '/auth', // o cookie só viaja para as rotas /auth/*
+      path: this.cookiePath, // em dev com proxy: /api/auth; direto na API: /auth
       maxAge: REFRESH_DAYS * DAY,
     });
 
@@ -153,7 +155,7 @@ export class AuthService {
         data: { revokedAt: new Date() }
       });
     }
-    res.clearCookie('rt', { path: '/auth' });
+    res.clearCookie('rt', { path: this.cookiePath });
     return { ok: true };
   }
 
