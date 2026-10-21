@@ -25,6 +25,8 @@ Quando o repositório estiver publicado no GitHub, descomente e troque OWNER/REP
 - [Stack](#stack)
 - [Estrutura do repositório](#estrutura-do-repositório)
 - [Como rodar localmente](#como-rodar-localmente)
+  - [Acessar pelo celular (IP da máquina)](#4-acessar-pelo-celular-na-mesma-rede-ip-da-máquina)
+  - [Instalar como app (PWA)](#5-instalar-como-app-no-celular-pwa)
 - [Credenciais de demonstração](#credenciais-de-demonstração)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [API](#api)
@@ -102,6 +104,7 @@ O fluxo principal do produto:
 - Sentry para erros (API e web).
 - Health check em `GET /health`.
 - Dashboard de filas (Bull Board) em `/queues` protegido por Basic Auth.
+- **PWA instalável**: manifest, service worker e prompt de instalação no celular.
 
 ---
 
@@ -220,6 +223,8 @@ Fluentify/
 - **Docker** e **Docker Compose**
 - Chave da **OpenAI** (necessária para gerar plano, chat, missões e dicas de IA)
 
+> Os comandos abaixo funcionam no Linux/macOS e no Windows (PowerShell). No Windows, troque `cp` por `Copy-Item`.
+
 ### 1. Subir Postgres e Redis
 
 ```bash
@@ -233,7 +238,7 @@ Isso expõe Postgres em `localhost:5433` e Redis em `localhost:6379`.
 
 ```bash
 cd english-api
-cp .env.example .env
+cp .env.example .env          # Windows: Copy-Item .env.example .env
 # edite o .env: DATABASE_URL, JWT_SECRET e OPENAI_API_KEY são os principais
 npm ci
 npx prisma migrate dev
@@ -243,12 +248,14 @@ npm run start:dev
 
 A API sobe em `http://localhost:3000`.
 
+> Se você restaurou um **backup** de outra máquina, o schema já está no dump: rode `npx prisma generate` (para criar o client) e **não** `prisma migrate dev`. O Redis precisa estar no ar para o BullMQ.
+
 ### 3. Rodar o front
 
 ```bash
 cd english-web
-cp .env.example .env
-# VITE_API_URL=http://localhost:3000
+cp .env.example .env          # Windows: Copy-Item .env.example .env
+# VITE_API_URL=/api (padrão)
 npm ci
 npm run dev
 ```
@@ -258,6 +265,150 @@ A SPA sobe em `http://localhost:5173`.
 > Sem uma `OPENAI_API_KEY` válida, o login e o conteúdo já seedado funcionam, mas geração de plano, chat, missões e dicas de IA vão falhar.
 >
 > Para recuperação de senha, se não houver `RESEND_API_KEY` ou o envio falhar, a API imprime o conteúdo do e-mail no console em desenvolvimento. Copie o link `/reset?token=...` de lá.
+
+### 4. Acessar pelo celular na mesma rede (IP da máquina)
+
+O front pode ser aberto por qualquer dispositivo na mesma Wi‑Fi. Como o front chama a API em `/api`, o **proxy do Vite** resolve a API local: você **não precisa** mudar `VITE_API_URL` nem configurar CORS para cada IP.
+
+#### 4.1 Descubra o IP da máquina
+
+Windows (PowerShell):
+
+```powershell
+ipconfig
+# ou:
+Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' }
+```
+
+Linux/macOS:
+
+```bash
+ip addr    # ou: ifconfig
+```
+
+Use o IPv4 do adaptador que está na **mesma rede** do celular (Wi‑Fi ou Ethernet). Exemplo: `192.168.0.10`.
+
+#### 4.2 Abra no celular
+
+Com a API e o front rodando:
+
+```text
+http://192.168.0.10:5173
+```
+
+(substitua pelo IP do seu computador)
+
+O Vite já está com `server.host: true`, então escuta em `0.0.0.0`. O celular e o computador precisam estar na mesma Wi‑Fi; redes de visitantes com “isolamento de clientes” podem bloquear.
+
+#### 4.3 Se não abrir: libere o firewall
+
+No Windows, abra o PowerShell **como administrador**:
+
+```powershell
+New-NetFirewallRule -DisplayName "Fluentify Dev (LAN)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5173,4173 -Profile Private
+```
+
+- `5173` → `npm run dev`
+- `4173` → `npm run preview` (PWA)
+
+A porta `3000` **não precisa** ser exposta: o navegador fala apenas com o Vite, que encaminha `/api` para `127.0.0.1:3000`.
+
+Confirme que a rede está como **Privada** (Configurações → Rede e Internet → Wi‑Fi → Propriedades) e que o roteador não tem “AP isolation / isolamento de clientes”.
+
+#### 4.4 Como funciona o proxy (e quando mudar)
+
+O `english-web/vite.config.ts` tem:
+
+```ts
+server:  { host: true, port: 5173, proxy: apiProxy },
+preview: { host: true, port: 4173, proxy: apiProxy },
+```
+
+e o proxy encaminha `/api/*` para `http://127.0.0.1:3000`, removendo o prefixo `/api`. O `english-web/.env` usa `VITE_API_URL=/api`, então:
+
+```text
+celular → http://IP:5173  → Vite (proxy) → http://127.0.0.1:3000 (API)
+```
+
+Isso mantém front e API na mesma origem, sem CORS, e faz o cookie de refresh (`COOKIE_PATH=/api/auth`) funcionar no celular.
+
+Se a API estiver em **outra máquina**, defina no `english-web/.env`:
+
+```env
+API_PROXY_TARGET=http://IP-DA-API:3000
+```
+
+e reinicie o `npm run dev`.
+
+> O IP pode mudar quando você troca de rede ou reconecta no Wi‑Fi. Se parar de abrir, rode `ipconfig` novamente.
+
+### 5. Instalar como app no celular (PWA)
+
+O projeto já inclui manifest, ícones, service worker e um banner de instalação. **Instalar exige HTTPS** (ou `localhost`); por isso, na mesma Wi‑Fi em HTTP, o navegador não oferece a instalação.
+
+#### 5.1 Gere o build e sirva o preview
+
+```bash
+cd english-web
+npm run build
+npm run preview
+```
+
+O preview sobe em `http://localhost:4173` e mantém o proxy `/api`.
+
+#### 5.2 Exponha com HTTPS (escolha uma opção)
+
+**Opção A — Cloudflare Tunnel (mais rápida, pública)**
+
+```powershell
+winget install --id Cloudflare.cloudflared -e
+```
+
+Feche e reabra o terminal. Com o preview rodando:
+
+```bash
+cloudflared tunnel --url http://localhost:4173
+```
+
+Copie a URL `https://....trycloudflare.com` e abra no celular.
+
+**Opção B — Tailscale (privado)**
+
+1. Instale o Tailscale no computador e no celular com a mesma conta.
+2. Com o preview rodando:
+
+```bash
+tailscale serve --bg 4173
+```
+
+3. Abra no celular a URL `https://<máquina>.<tailnet>.ts.net`.
+
+#### 5.3 Instale
+
+- **Android/Chrome:** o banner “Instale o Fluentify no celular” aparece; ou menu → “Instalar app”.
+- **iPhone/Safari:** Compartilhar → “Adicionar à Tela de Início”.
+
+#### 5.4 Observações
+
+- O banner aparece só em telas mobile e depois do login.
+- Em `npm run dev`, o service worker não fica ativo por padrão; para testar a instalação use `npm run build` + `npm run preview`.
+- **Login com Google:** adicione a URL do túnel em “Origens JavaScript autorizadas” no Google Cloud Console.
+- **Recuperação de senha:** ajuste `FRONTEND_URL` no `english-api/.env` para a URL usada no celular/túnel e reinicie a API.
+- Túneis `trycloudflare.com` são públicos; para acesso privado, use Tailscale.
+- Para acessar **fora da sua rede** (4G/5G), o IP local não funciona — use o túnel ou faça o deploy descrito no roadmap.
+
+### 6. Problemas comuns
+
+| Sintoma | Causa provável | Solução |
+|---|---|---|
+| Celular não abre `http://IP:5173` | Firewall, rede diferente ou AP isolation | Libere a porta, confirme a mesma Wi‑Fi e a rede Privada |
+| Tela abre, mas o login falha | `VITE_API_URL` diferente de `/api` ou API parada | Confira o `.env` do web e se a API está na porta 3000 |
+| Login funciona e cai ao recarregar | `COOKIE_PATH` diferente de `/api/auth` | Ajuste o `.env` da API e reinicie |
+| `P1001` / banco inacessível | Porta errada (o compose usa **5433**) | Confira `DATABASE_URL` |
+| API não sobe | `OPENAI_API_KEY` ausente | Preencha a chave (o `AiService` exige) |
+| PWA não oferece instalar | Página em HTTP, não HTTPS | Use `preview` + túnel HTTPS |
+| O IP parou de funcionar | O DHCP trocou o IP | Rode `ipconfig` e use o novo IP |
+| `Cannot find module .../generated/prisma` | Client do Prisma não gerado | Rode `npx prisma generate` |
 
 ---
 
@@ -294,7 +445,8 @@ O seed é **idempotente**: pode ser executado novamente sem duplicar dados.
 | `OPENAI_API_KEY` | ✅ (IA) | Chave da OpenAI |
 | `OPENAI_MODEL` | — | Modelo "smart" (padrão `gpt-4.1`) |
 | `OPENAI_MODEL_FAST` | — | Modelo "fast" para análise/dicas (padrão `gpt-4.1-mini`) |
-| `FRONTEND_URL` | ✅ | Origem liberada no CORS |
+| `FRONTEND_URL` | ✅ | Origem liberada no CORS e base do link de recuperação de senha (aceita lista separada por vírgula) |
+| `COOKIE_PATH` | ✅ | Caminho do cookie de refresh. Com o proxy do Vite, use `/api/auth`; sem proxy, `/auth` |
 | `REDIS_HOST` / `REDIS_PORT` | ✅ | Conexão do BullMQ |
 | `PORT` | — | Porta da API (padrão `3000`) |
 | `NODE_ENV` | — | `development` / `production` |
@@ -308,9 +460,11 @@ O seed é **idempotente**: pode ser executado novamente sem duplicar dados.
 
 | Variável | Obrigatória | Descrição |
 |---|---|---|
-| `VITE_API_URL` | ✅ | URL da API (ex.: `http://localhost:3000`) |
+| `VITE_API_URL` | ✅ | `/api` em dev (proxy do Vite para a API local); URL pública da API em produção |
 | `VITE_GOOGLE_CLIENT_ID` | — | Client ID do Google Sign-In |
 | `VITE_SENTRY_DSN` | — | Erros no Sentry |
+
+> Em desenvolvimento, o Vite encaminha `/api/*` para `http://127.0.0.1:3000`. Para apontar para outra máquina, defina `API_PROXY_TARGET` no `.env` do web.
 
 ---
 
